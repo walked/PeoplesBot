@@ -90,10 +90,16 @@ func queryScryfall(n string) *scryfallList {
 
 	var culled scryfallList
 	for i, v := range sl.CardList {
-		if strings.EqualFold(n, v.Name) {
+		tmp := strings.ReplaceAll(v.Name, "'", "")
+
+		//fmt.Println(tmp)
+		if strings.EqualFold(strings.ReplaceAll(n, "'", ""), tmp) {
 			culled.CardList = append(culled.CardList, sl.CardList[i])
 		}
 	}
+	fmt.Println(len(culled.CardList))
+	fmt.Println(culled.CardList[0].Name)
+	fmt.Println(len(culled.CardList))
 	return &culled
 }
 
