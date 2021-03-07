@@ -102,8 +102,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		cardname = strings.TrimPrefix(cardname, "!legal ")
 		cleanName, urlName := cleanInput(cardname)
 
-		//fmt.Println(cleanName + " " + urlName)
+		fmt.Println(cleanName + " " + urlName)
 		match, matches := scryFallMatch(cleanName, urlName)
+
 		fmt.Printf("match list length: %v", len(match.CardList))
 		if len(match.CardList) > 0 {
 			//checkBanned(match.CardList[0].Name)
@@ -118,6 +119,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			s.ChannelMessageSendEmbed(m.ChannelID, newEmbed(cleanName, urlName, true, &sl))
 			//s.ChannelMessageSendEmbed(m.ChannelID, generateEmbed(cardname, true, match))
 		} else {
+			s.ChannelMessageSendEmbed(m.ChannelID, newEmbed(cleanName, urlName, false, matches))
 
 		}
 

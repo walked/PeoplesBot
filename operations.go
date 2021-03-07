@@ -197,6 +197,15 @@ func scryFallMatch(n string, urlString string) (match, matches *scryfallList) {
 	if err != nil {
 		fmt.Print(err)
 	}
+	if len(sl.CardList) == 0 {
+		response, err := http.Get("https://api.scryfall.com/cards/search?unique=prints&q=" + urlString + "&pretty=true")
+		responseData, err := ioutil.ReadAll(response.Body)
+
+		err = json.Unmarshal(responseData, &sl)
+		if err != nil {
+			fmt.Print(err)
+		}
+	}
 	var culled scryfallList
 	for i, v := range sl.CardList {
 		c, _ := cleanInput(v.Name)
