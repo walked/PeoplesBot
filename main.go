@@ -32,6 +32,8 @@ type card struct {
 	Oracle     string     `json:"oracle_text"`
 	Legalities legalities `json:"legalities"`
 	Image_uris images     `json:"image_uris"`
+	Type       string     `json:"type_line"`
+	Manacost   string     `json:"mana_cost"`
 }
 
 // type bannedCard struct {
@@ -50,6 +52,7 @@ func main() {
 	}
 	dg.AddHandler(messageCreate)
 	dg.Identify.Intents = discordgo.IntentsGuildMessages
+
 	err = dg.Open()
 	if err != nil {
 		fmt.Println("error opening connection,", err)
@@ -69,25 +72,55 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if strings.HasPrefix(m.Content, "?legal") {
-		fmt.Println("Content:" + m.Content)
-		cardname := strings.TrimPrefix(m.Content, "?legal ")
-		fmt.Println(cardname)
+	// if strings.HasPrefix(m.Content, "?legal") {
+	// 	fmt.Println("Content:" + m.Content)
+	// 	cardname := strings.TrimPrefix(m.Content, "?legal ")
+	// 	fmt.Println(cardname)
+	// 	cleanInput(cardname)
 
-		// Pull cardname into a struct of scryfallList type
-		sl := queryScryfall(cardname)
+	// 	// Pull cardname into a struct of scryfallList type
+	// 	sl := queryScryfall(cardname)
 
-		if len(sl.CardList) < 1 {
-			// false indicates not found
-			s.ChannelMessageSendEmbed(m.ChannelID, generateEmbed(cardname, false, sl))
-		} else {
-			// true indicates found in scryfall database
-			s.ChannelMessageSendEmbed(m.ChannelID, generateEmbed(cardname, true, sl))
-		}
+	// 	if len(sl.CardList) < 1 {
+	// 		// false indicates not found
+	// 		s.ChannelMessageSendEmbed(m.ChannelID, generateEmbed(cardname, false, sl))
+	// 	} else {
+	// 		// true indicates found in scryfall database
+	// 		s.ChannelMessageSendEmbed(m.ChannelID, generateEmbed(cardname, true, sl))
+	// 	}
 
-	}
+	// }
 	if strings.HasPrefix(m.Content, "?proxy") || strings.HasPrefix(m.Content, "?proxies") {
 		s.ChannelMessageSendEmbed(m.ChannelID, proxies())
+	}
+
+	//// REWRITE STARTS HERE
+	if strings.HasPrefix(m.Content, "!legal") || strings.HasPrefix(m.Content, "?legal") {
+		//fmt.Println("Content:" + m.Content)
+
+		cardname := strings.TrimPrefix(m.Content, "?legal ")
+		cardname = strings.TrimPrefix(cardname, "!legal ")
+		cleanName, urlName := cleanInput(cardname)
+
+		//fmt.Println(cleanName + " " + urlName)
+		match, matches := scryFallMatch(cleanName, urlName)
+		fmt.Printf("match list length: %v", len(match.CardList))
+		if len(match.CardList) > 0 {
+			//checkBanned(match.CardList[0].Name)
+			//checkLegal(&match.CardList)
+			//checkLegality(&match.CardList)
+			s.ChannelMessageSendEmbed(m.ChannelID, newEmbed(cleanName, urlName, true, match))
+			//checklegality(banned, general)
+			//sendembed, cardname, banned, generally legal, list
+		} else if len(matches.CardList) > 0 {
+			var sl scryfallList
+			sl.CardList = append(sl.CardList, matches.CardList[0])
+			s.ChannelMessageSendEmbed(m.ChannelID, newEmbed(cleanName, urlName, true, &sl))
+			//s.ChannelMessageSendEmbed(m.ChannelID, generateEmbed(cardname, true, match))
+		} else {
+
+		}
+
 	}
 
 }

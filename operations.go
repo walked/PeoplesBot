@@ -4,149 +4,151 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-func getGeneralLegality(cl *[]card, n string) string {
-	legalRarity := false
-	vintageLegality := false
-	for _, v := range *cl {
-		if strings.EqualFold(v.Name, n) {
-			if v.Legalities.Vintage == "legal" || v.Legalities.Vintage == "restricted" {
-				vintageLegality = true
-			} else {
-				vintageLegality = false
-				break
-			}
-			if v.Rarity == "common" || v.Rarity == "uncommon" {
-				legalRarity = true
-			}
-			if v.Reserved == true {
-				legalRarity = false
-			}
+// func getGeneralLegality(cl *[]card, n string) string {
+// 	legalRarity := false
+// 	vintageLegality := false
+// 	for _, v := range *cl {
+// 		if strings.EqualFold(v.Name, n) {
+// 			if v.Legalities.Vintage == "legal" || v.Legalities.Vintage == "restricted" {
+// 				vintageLegality = true
+// 			} else {
+// 				vintageLegality = false
+// 				break
+// 			}
+// 			if v.Rarity == "common" || v.Rarity == "uncommon" {
+// 				legalRarity = true
+// 			}
+// 			if v.Reserved == true {
+// 				legalRarity = false
+// 			}
 
-		}
-	}
-	fmt.Printf("Checking General Legality for: %v \n", n)
-	if legalRarity == true && vintageLegality == true {
-		fmt.Println("Legal")
-		return "legal"
-	} else {
-		fmt.Println("Not legal")
-	}
-	return "not legal"
-	// fmt.Printf("Found: %v with Rarity: %v \n", v.Name, v.Rarity)
-	// fmt.Println(v.Legalities.Vintage)
-}
+// 		}
+// 	}
+// 	fmt.Printf("Checking General Legality for: %v \n", n)
+// 	if legalRarity == true && vintageLegality == true {
+// 		fmt.Println("Legal")
+// 		return "legal"
+// 	} else {
+// 		fmt.Println("Not legal")
+// 	}
+// 	return "not legal"
+// 	// fmt.Printf("Found: %v with Rarity: %v \n", v.Name, v.Rarity)
+// 	// fmt.Println(v.Legalities.Vintage)
+// }
 
-func getBannedList(n string) string {
-	bannedCards, err := os.Open("banlist.json")
-	if err != nil {
-		fmt.Printf("Fatal Error Reading banlist.json: %v", err)
-	}
-	defer bannedCards.Close()
-	byteBanList, err := ioutil.ReadAll(bannedCards)
+// func getBannedList(n string) string {
+// 	bannedCards, err := os.Open("banlist.json")
+// 	if err != nil {
+// 		fmt.Printf("Fatal Error Reading banlist.json: %v", err)
+// 	}
+// 	defer bannedCards.Close()
+// 	byteBanList, err := ioutil.ReadAll(bannedCards)
 
-	var banList []card
-	err = json.Unmarshal(byteBanList, &banList)
+// 	var banList []card
+// 	err = json.Unmarshal(byteBanList, &banList)
 
-	if err != nil {
-		fmt.Printf("Fatal Error unmarshalling banlist.json: %v", err)
-	}
+// 	if err != nil {
+// 		fmt.Printf("Fatal Error unmarshalling banlist.json: %v", err)
+// 	}
 
-	legal := true
+// 	legal := true
 
-	for _, v := range banList {
-		if strings.EqualFold(v.Name, n) {
-			legal = false
+// 	for _, v := range banList {
+// 		if strings.EqualFold(v.Name, n) {
+// 			legal = false
 
-		}
-	}
+// 		}
+// 	}
 
-	if legal == false {
-		return "banned"
-	}
-	return "not banned"
-	// fmt.Printf("Found: %v with Rarity: %v \n", v.Name, v.Rarity)
-	// fmt.Println(v.Legalities.Vintage)
-}
+// 	if legal == false {
+// 		return "banned"
+// 	}
+// 	return "not banned"
+// 	// fmt.Printf("Found: %v with Rarity: %v \n", v.Name, v.Rarity)
+// 	// fmt.Println(v.Legalities.Vintage)
+// }
 
-func queryScryfall(n string) *scryfallList {
-	var sl scryfallList
-	urlCardname := strings.ReplaceAll(n, " ", "+")
-	response, err := http.Get("https://api.scryfall.com/cards/search?unique=prints&q=" + urlCardname + "&pretty=true")
-	responseData, err := ioutil.ReadAll(response.Body)
-	//fmt.Println(string(responseData))
+// func queryScryfall(n string) *scryfallList {
+// 	var sl scryfallList
+// 	urlCardname := strings.ReplaceAll(n, " ", "+")
+// 	response, err := http.Get("https://api.scryfall.com/cards/search?unique=prints&q=" + urlCardname + "&pretty=true")
+// 	responseData, err := ioutil.ReadAll(response.Body)
+// 	//fmt.Println(string(responseData))
 
-	err = json.Unmarshal(responseData, &sl)
-	if err != nil {
-		fmt.Print(err)
-	}
+// 	err = json.Unmarshal(responseData, &sl)
+// 	if err != nil {
+// 		fmt.Print(err)
+// 	}
 
-	var culled scryfallList
-	for i, v := range sl.CardList {
-		tmp := strings.ReplaceAll(v.Name, "'", "")
+// 	var culled scryfallList
+// 	for i, v := range sl.CardList {
+// 		tmp := strings.ReplaceAll(v.Name, "'", "")
 
-		//fmt.Println(tmp)
-		if strings.EqualFold(strings.ReplaceAll(n, "'", ""), tmp) {
-			culled.CardList = append(culled.CardList, sl.CardList[i])
-		}
-	}
-	fmt.Println(len(culled.CardList))
-	fmt.Println(culled.CardList[0].Name)
-	fmt.Println(len(culled.CardList))
-	return &culled
-}
+// 		//fmt.Println(tmp)
+// 		if strings.EqualFold(strings.ReplaceAll(n, "'", ""), tmp) {
+// 			culled.CardList = append(culled.CardList, sl.CardList[i])
+// 		}
+// 	}
+// 	fmt.Println(len(culled.CardList))
+// 	fmt.Println(culled.CardList[0].Name)
+// 	fmt.Println(len(culled.CardList))
+// 	return &culled
+// }
 
-func generateEmbed(c string, found bool, sl *scryfallList) *discordgo.MessageEmbed {
-	var embed discordgo.MessageEmbed
+// func generateEmbed(c string, found bool, sl *scryfallList) *discordgo.MessageEmbed {
+// 	var embed discordgo.MessageEmbed
 
-	if !found {
-		embed.Title = "Not Found"
-		embed.Color = 15158332
-		embed.Description = c + " not found in Scryfall Database"
-		return &embed
-	} else {
-		general := getGeneralLegality(&sl.CardList, sl.CardList[0].Name)
-		banned := getBannedList(c)
-		legalCard := false
-		if general == "legal" && banned == "not banned" {
-			legalCard = true
-		} else {
-			legalCard = false
-		}
-		var thumbnail discordgo.MessageEmbedThumbnail
+// 	if !found {
+// 		embed.Title = "Not Found"
+// 		embed.Color = 15158332
+// 		embed.Description = c + " not found in Scryfall Database"
+// 		return &embed
+// 	} else {
+// 		general := getGeneralLegality(&sl.CardList, sl.CardList[0].Name)
+// 		banned := getBannedList(c)
+// 		legalCard := false
+// 		if general == "legal" && banned == "not banned" {
+// 			legalCard = true
+// 		} else {
+// 			legalCard = false
+// 		}
+// 		var thumbnail discordgo.MessageEmbedThumbnail
 
-		if len(sl.CardList) > 0 {
-			thumbnail.URL = sl.CardList[0].Image_uris.Normal
-		} else {
-			thumbnail.URL = ""
-		}
-		urlCardname := strings.ReplaceAll(c, " ", "+")
-		footer := discordgo.MessageEmbedFooter{
-			Text: "\n Banlist Status: " + banned +
-				"\nLegality otherwise: " + general +
-				"\nReserved List: " + strconv.FormatBool(sl.CardList[0].Reserved),
-		}
+// 		if len(sl.CardList) > 0 {
+// 			thumbnail.URL = sl.CardList[0].Image_uris.Normal
+// 		} else {
+// 			thumbnail.URL = ""
+// 		}
+// 		urlCardname := strings.ReplaceAll(c, " ", "+")
+// 		footer := discordgo.MessageEmbedFooter{
+// 			Text: "\n Banlist Status: " + banned +
+// 				"\nLegality otherwise: " + general +
+// 				"\nReserved List: " + strconv.FormatBool(sl.CardList[0].Reserved),
+// 		}
 
-		embed = discordgo.MessageEmbed{
-			Title: sl.CardList[0].Name,
-			URL:   "https://scryfall.com/search?as=grid&order=released&q=%21\"" + urlCardname + "\"&unique=prints",
-			Color: 15158332,
-			Description: "**Proletariat Legal:** " + strconv.FormatBool(legalCard) +
-				"\n\n`" + sl.CardList[0].Oracle + "`\n",
-			Thumbnail: &thumbnail,
-			Footer:    &footer,
-		}
-	}
+// 		embed = discordgo.MessageEmbed{
+// 			Title: sl.CardList[0].Name,
+// 			URL:   "https://scryfall.com/search?as=grid&order=released&q=%21\"" + urlCardname + "\"&unique=prints",
+// 			Color: 15158332,
+// 			Description: "**Proletariat Legal:** " + strconv.FormatBool(legalCard) +
+// 				"\n\n`" + sl.CardList[0].Oracle + "`\n",
+// 			Thumbnail: &thumbnail,
+// 			Footer:    &footer,
+// 		}
+// 	}
 
-	return &embed
-}
+// 	return &embed
+// }
 
 func proxies() *discordgo.MessageEmbed {
 	var embed discordgo.MessageEmbed
@@ -169,6 +171,157 @@ func proxies() *discordgo.MessageEmbed {
 	return &embed
 }
 
-// func generateEmbed(c string, l scryfallList) *discordgo.MessageEmbed {
-// 	var embed discordgo.MessageEmbed
-// }
+///// REBUILD STARTS HERE
+
+// Clean input from any given query to remove special characters and add replace spaces with plus symbols
+func cleanInput(n string) (name, urlName string) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9\\s]+")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cleanedInput := reg.ReplaceAllString(n, "")
+	urlString := strings.ReplaceAll(cleanedInput, " ", "+")
+
+	//fmt.Printf("Input String: %s\n", cleanedInput)
+
+	return cleanedInput, urlString
+}
+
+func scryFallMatch(n string, urlString string) (match, matches *scryfallList) {
+	var sl scryfallList
+	response, err := http.Get("https://api.scryfall.com/cards/search?unique=prints&q=name:/^" + urlString + "/&pretty=true")
+	responseData, err := ioutil.ReadAll(response.Body)
+
+	err = json.Unmarshal(responseData, &sl)
+	if err != nil {
+		fmt.Print(err)
+	}
+	var culled scryfallList
+	for i, v := range sl.CardList {
+		c, _ := cleanInput(v.Name)
+		if strings.EqualFold(n, c) {
+			culled.CardList = append(culled.CardList, sl.CardList[i])
+		}
+
+	}
+
+	fmt.Println(len(culled.CardList))
+	//fmt.Println(culled.CardList[0].Name)
+	fmt.Println(len(sl.CardList))
+	return &culled, &sl
+}
+
+func checkLegality(cl *[]card) (banned, generallLegal bool) {
+
+	return checkBanned((*cl)[0].Name), checkLegal(cl)
+}
+
+func checkBanned(n string) bool {
+	bannedCards, err := os.Open("banlist.json")
+	if err != nil {
+		fmt.Printf("Fatal Error Reading banlist.json: %v", err)
+	}
+	defer bannedCards.Close()
+	byteBanList, err := ioutil.ReadAll(bannedCards)
+
+	var banList []card
+	err = json.Unmarshal(byteBanList, &banList)
+
+	if err != nil {
+		fmt.Printf("Fatal Error unmarshalling banlist.json: %v", err)
+	}
+
+	banned := false
+
+	for _, v := range banList {
+		if strings.EqualFold(v.Name, n) {
+			banned = true
+
+		}
+	}
+
+	fmt.Printf("[BANLIST]:: Checked: %v with Status: %t \n", n, banned)
+	return banned
+	// fmt.Printf("Found: %v with Rarity: %v \n", v.Name, v.Rarity)
+	// fmt.Println(v.Legalities.Vintage)
+}
+
+func checkLegal(cl *[]card) bool {
+	legalRarity := false
+	vintageLegality := false
+	reserved := false
+	for _, v := range *cl {
+
+		if v.Legalities.Vintage == "legal" || v.Legalities.Vintage == "restricted" {
+			vintageLegality = true
+		} else {
+			vintageLegality = false
+			break
+		}
+		if v.Rarity == "common" || v.Rarity == "uncommon" {
+			legalRarity = true
+		}
+		if v.Reserved {
+			reserved = true
+		}
+
+	}
+	fmt.Printf("[LEGAL]:: Found: %v with: Rarity Legality: %t \n Vintage Legality: %t \n Reserved List: %t \n", (*cl)[0].Name, legalRarity, vintageLegality, reserved)
+	if legalRarity && vintageLegality && !reserved {
+		return true
+	}
+	return false
+
+}
+
+func newEmbed(c string, urlName string, found bool, sl *scryfallList) *discordgo.MessageEmbed {
+	var embed discordgo.MessageEmbed
+
+	if !found {
+		embed.Title = "Not Found"
+		embed.Color = 15158332
+		embed.Description = c + " not found in Scryfall Database"
+		return &embed
+	} else {
+		banned, general := checkLegality(&sl.CardList)
+
+		legalCard := false
+		if general == true && banned == false {
+			legalCard = true
+		} else {
+			legalCard = false
+		}
+		var thumbnail discordgo.MessageEmbedThumbnail
+
+		if len(sl.CardList) > 0 {
+			thumbnail.URL = sl.CardList[0].Image_uris.Normal
+		} else {
+			thumbnail.URL = ""
+		}
+
+		footer := discordgo.MessageEmbedFooter{
+			Text: "\n Banlist Status: " + strconv.FormatBool(banned) +
+				"\nLegality otherwise: " + strconv.FormatBool(general) +
+				"\nReserved List: " + strconv.FormatBool(sl.CardList[0].Reserved),
+		}
+
+		color := 15158332
+		if legalCard {
+			color = 3066993
+		}
+		embed = discordgo.MessageEmbed{
+			Title: sl.CardList[0].Name,
+			URL:   "https://scryfall.com/search?as=grid&order=released&q=%21\"" + urlName + "\"&unique=prints",
+			Color: color,
+			Description: sl.CardList[0].Manacost +
+				"\n*" + sl.CardList[0].Type + "*" +
+				"\n**Proletariat Legal:** " + strconv.FormatBool(legalCard) +
+				"\n\n`" + sl.CardList[0].Oracle + "`\n",
+			Thumbnail: &thumbnail,
+			Footer:    &footer,
+		}
+	}
+
+	return &embed
+}
