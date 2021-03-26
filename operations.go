@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/jonlaing/htmlmeta"
 )
 
 // func getGeneralLegality(cl *[]card, n string) string {
@@ -173,6 +175,42 @@ func proxies() *discordgo.MessageEmbed {
 
 ///// REBUILD STARTS HERE
 
+func decklistEmbed(legalList bool, id string) *discordgo.MessageEmbed {
+	var embed discordgo.MessageEmbed
+
+	var thumbnail discordgo.MessageEmbedThumbnail
+	thumbnail.URL = "https://thepeoplesformat.com/discord_logo.png"
+
+	footer := discordgo.MessageEmbedFooter{
+		Text: "Please note at this time this function only checks individual card legality.",
+	}
+	color := 15158332
+	if legalList {
+		color = 3066993
+	}
+
+	title := id
+	response, err := http.Get("https://www.mtggoldfish.com/deck/" + id)
+	if err != nil {
+		fmt.Printf("%s", err)
+	} else {
+		defer response.Body.Close()
+		meta := htmlmeta.Extract(response.Body)
+		title = meta.Title
+	}
+
+	embed = discordgo.MessageEmbed{
+		Title:       title,
+		URL:         "https://www.mtggoldfish.com/deck/" + id,
+		Color:       color,
+		Description: "Legal List: " + strconv.FormatBool(legalList),
+		Thumbnail:   &thumbnail,
+		Footer:      &footer,
+	}
+
+	return &embed
+}
+
 // Clean input from any given query to remove special characters and add replace spaces with plus symbols
 func cleanInput(n string) (name, urlName string) {
 	reg, err := regexp.Compile("[^a-zA-Z0-9\\s]+")
@@ -187,7 +225,173 @@ func cleanInput(n string) (name, urlName string) {
 
 	return cleanedInput, urlString
 }
+func goldfish(id string) bool {
+	main := make(map[string]int)
+	side := make(map[string]int)
 
+	response, err := http.Get("https://www.mtggoldfish.com/deck/download/" + id)
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		fmt.Print(err)
+	} else {
+		//fmt.Print(string(responseData))
+	}
+	list := string(responseData)
+
+	//fmt.Print(list)
+	scanner := bufio.NewScanner(strings.NewReader(list))
+	sideboard := false
+	for scanner.Scan() {
+
+		//fmt.Println(scanner.Text())
+		if scanner.Text() != "" && sideboard == false {
+			qty, card := processLine(scanner.Text())
+			main[card] = qty
+			fmt.Print("MAINBOARD ")
+			fmt.Printf("Qty: %d :: Card: %s \n", qty, card)
+
+		} else if scanner.Text() != "" && sideboard == true {
+			qty, card := processLine(scanner.Text())
+			side[card] = qty
+			fmt.Print("SIDEBOARD ")
+			fmt.Printf("Qty: %d :: Card: %s \n", qty, card)
+
+		} else if scanner.Text() == "" {
+			sideboard = true
+		}
+		//processLine(scanner.Text())
+	}
+	return legalList(main, side)
+
+}
+func deckbox(id string) bool {
+	main := make(map[string]int)
+	side := make(map[string]int)
+
+	response, err := http.Get("https://deckbox.org/sets/" + id + "/export")
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		fmt.Print(err)
+	} else {
+		//fmt.Print(string(responseData))
+	}
+	list := string(responseData)
+
+	//fmt.Print(list)
+	scanner := bufio.NewScanner(strings.NewReader(list))
+	sideboard := false
+	for scanner.Scan() {
+
+		//fmt.Println(scanner.Text())
+		if scanner.Text() != "" && scanner.Text() != "Sideboard:" && sideboard == false {
+			qty, card := processLine(scanner.Text())
+			main[card] = qty
+			fmt.Print("MAINBOARD ")
+			fmt.Printf("Qty: %d :: Card: %s \n", qty, card)
+
+		} else if scanner.Text() != "" && scanner.Text() != "Sideboard:" && sideboard == true {
+			qty, card := processLine(scanner.Text())
+			side[card] = qty
+			fmt.Print("SIDEBOARD ")
+			fmt.Printf("Qty: %d :: Card: %s \n", qty, card)
+
+		} else if scanner.Text() == "" {
+			sideboard = true
+		}
+		//processLine(scanner.Text())
+	}
+	return legalList(main, side)
+
+}
+
+func legalList(m, s map[string]int) bool {
+	legal := true
+
+	mainQty := 0
+	sideQty := 0
+
+	for c, q := range m {
+		cleanName, urlName := cleanInput(c)
+		mainQty += q
+		match, _ := scryFallMatch(cleanName, urlName)
+		if len(match.CardList) > 0 {
+			ban, gen := checkLegality(&match.CardList)
+			if q > 4 {
+				if !strings.Contains(match.CardList[0].Type, "Basic") {
+					legal = false
+					break
+				}
+			}
+			if ban == true || gen == false {
+				legal = false
+				break
+			}
+
+		}
+	}
+	for c, q := range s {
+		sideQty += q
+		cleanName, urlName := cleanInput(c)
+		match, _ := scryFallMatch(cleanName, urlName)
+		if len(match.CardList) > 0 {
+			ban, gen := checkLegality(&match.CardList)
+			if ban == true || gen == false {
+				legal = false
+			}
+
+		}
+	}
+
+	if mainQty < 60 {
+		legal = false
+	}
+	if sideQty > 15 {
+		legal = false
+	}
+	if legal {
+		//mergemap(m, s)
+		for k, v := range mergemap(m, s) {
+			if v > 4 {
+				cleanName, urlName := cleanInput(k)
+				match, _ := scryFallMatch(cleanName, urlName)
+				if len(match.CardList) > 0 {
+					if !strings.Contains(match.CardList[0].Type, "Basic") {
+						legal = false
+					}
+				}
+			}
+		}
+	}
+	return legal
+}
+
+// func mergeMap(main map[string]int, side map[string]int) map[string]int {
+// 	for k,v := range b{
+// 		a[k] += v
+// 	}
+// 	reutrn main
+// }
+func mergemap(a map[string]int, b map[string]int) map[string]int {
+	for k, v := range b {
+		a[k] += v
+	}
+	return a
+}
+
+func processLine(ln string) (qty int, name string) {
+	count := 0
+	cardname := ""
+	line := strings.SplitN(ln, " ", 2)
+	qty, err := strconv.Atoi(line[0])
+	if err != nil {
+		fmt.Print("ERROR " + err.Error())
+
+	} else {
+		cardname = line[1]
+		count = qty
+	}
+	return count, cardname
+}
 func scryFallMatch(n string, urlString string) (match, matches *scryfallList) {
 	var sl scryfallList
 	response, err := http.Get("https://api.scryfall.com/cards/search?unique=prints&q=name:/^" + urlString + "/&pretty=true")

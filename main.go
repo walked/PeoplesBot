@@ -42,6 +42,11 @@ type card struct {
 
 func main() {
 
+	//goldfish("3862969")
+	// q, card := processLine("1 Brainstorm")
+	// fmt.Println(q)
+	// fmt.Println(card)
+
 	// NEW DISCORD SESSION AND HANDLERS
 	//
 	token := os.Getenv("DISCORD_TOKEN")
@@ -65,6 +70,7 @@ func main() {
 	dg.Close()
 
 }
+
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// Ignore all messages created by the bot itself
@@ -124,5 +130,52 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 	}
+	if strings.HasPrefix(m.Content, "!list") || strings.HasPrefix(m.Content, "?list") {
+		deckid := strings.TrimPrefix(m.Content, "?list ")
+		deckid = strings.TrimPrefix(deckid, "!list ")
+		fmt.Println(deckid)
+		l := goldfish(deckid)
+		s.ChannelMessageSendEmbed(m.ChannelID, decklistEmbed(l, deckid))
+		//s.ChannelMessageSendEmbed(m.ChannelID, proxies())
+	}
 
+	//discordgo.MessageReaction := {}
+	// if strings.HasPrefix(m.Content, "https://www.mtggoldfish.com/deck/") {
+	// 	deckid := strings.TrimPrefix(m.Content, "https://www.mtggoldfish.com/deck/")
+	// 	deckid = strings.Split(deckid, "#")[0]
+
+	// 	l := goldfish(deckid)
+	// 	if l {
+	// 		s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+	// 	} else {
+	// 		s.MessageReactionAdd(m.ChannelID, m.ID, "🚫")
+	// 	}
+	// }
+	if strings.Contains(m.Content, "https://www.mtggoldfish.com/deck/") {
+		deckid := strings.Split(m.Content, "https://www.mtggoldfish.com/deck/")[1]
+
+		deckid = strings.Split(deckid, "#")[0]
+		deckid = strings.Split(deckid, " ")[0]
+
+		l := goldfish(deckid)
+		if l {
+			s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+		} else {
+			s.MessageReactionAdd(m.ChannelID, m.ID, "🚫")
+		}
+	}
+
+	if strings.Contains(m.Content, "https://deckbox.org/sets/") {
+		deckid := strings.Split(m.Content, "https://deckbox.org/sets/")[1]
+
+		deckid = strings.Split(deckid, "#")[0]
+		deckid = strings.Split(deckid, " ")[0]
+
+		l := deckbox(deckid)
+		if l {
+			s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+		} else {
+			s.MessageReactionAdd(m.ChannelID, m.ID, "🚫")
+		}
+	}
 }
